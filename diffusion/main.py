@@ -1,7 +1,8 @@
 # from comet_ml import Experiment
 from trainer import Trainer
 from diffusion import Diffusion
-from unet import Unet
+# from unet import Unet
+from diffusers.models.unets.unet_2d_condition import UNet2DCondition
 import argparse
 import wandb
 import torch
@@ -67,10 +68,7 @@ if __name__ == "__main__":
         dir="C:\\Users\\aravi\\Downloads",
     )
 
-    model = Unet(
-        dim=args.unet_dim,
-        dim_mults=args.unet_dim_mults,
-    ).to(device)
+    model = UNet2DCondition(in_channels = 3, out_channels = 3).to(device)
 
     diffusion = Diffusion(
         model,

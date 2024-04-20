@@ -166,9 +166,11 @@ class Trainer(object):
             for i in range(self.gradient_accumulate_every):
                 data_1 = next(self.dl)
                 data_2 = torch.randn_like(data_1)
+                
+                text_encoding = self.LLM(text)
 
                 data_1, data_2 = data_1.to(self.device), data_2.to(self.device)
-                loss = torch.mean(self.model(data_1, data_2))
+                loss = torch.mean(self.model(data_1, data_2, text_encoding))
                 u_loss += loss.item()
                 (loss / self.gradient_accumulate_every).backward()
 

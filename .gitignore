@@ -7,3 +7,10 @@ data/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.jpg
+*.png
+*.jpeg
+*.zip
+*.txt
+*.npy
+*.ckpt

@@ -94,7 +94,7 @@ class Diffusion(nn.Module):
 
     # backward diffusion
     @torch.no_grad()
-    def p_sample(self, x, t, t_index):
+    def p_sample(self, x, t, t_index, text_encoding):
         """
         Samples from the reverse diffusion process at time t_index.
         Args:
@@ -111,7 +111,7 @@ class Diffusion(nn.Module):
         t = torch.full((x.shape[0], ), t_index).to(device)
         this_alpha_t = extract(self.alpha_t, t, x.shape)
         this_alpha_bar_t = extract(self.alpha_bar_t, t, x.shape)
-        eps_pred = self.model(x, torch.full((x.shape[0], ), t_index).to(device))
+        eps_pred = self.model(x, torch.full((x.shape[0], ), t_index).to(device), text_encoding)
         x_0_pred = (x - torch.sqrt(1-this_alpha_bar_t)*eps_pred)/torch.sqrt(this_alpha_bar_t)
         x_0_pred = torch.clamp(x_0_pred, -1, 1)
 
@@ -125,7 +125,7 @@ class Diffusion(nn.Module):
         # ####################################################
 
     @torch.no_grad()
-    def p_sample_loop(self, img):
+    def p_sample_loop(self, img, text_encoding):
         """
         Samples from the noise distribution at each time step.
         Args:
@@ -140,14 +140,14 @@ class Diffusion(nn.Module):
         # 3. clamp and unnormalize the generted image to valid pixel range
         # Hint: to get time index, you can use torch.full()
         for t_index in range(self.num_timesteps-1, -1, -1):
-            img = self.p_sample(img, None, t_index)
+            img = self.p_sample(img, None, t_index, text_encoding)
         img = torch.clamp(img, -1, 1)
         img = unnormalize_to_zero_to_one(img)
         return img
         # ####################################################
 
     @torch.no_grad()
-    def sample(self, batch_size):
+    def sample(self, batch_size, text_encoding):
         """
         Samples from the noise distribution at each time step.
         Args:
@@ -158,7 +158,7 @@ class Diffusion(nn.Module):
         self.model.eval()
         #### TODO: Implement the p_sample_loop function ####
         img = torch.randn((batch_size, self.channels, self.image_size, self.image_size)).to(device)
-        img = self.p_sample_loop(img)
+        img = self.p_sample_loop(img, text_encoding)
         return img
 
     # forward diffusion
@@ -180,7 +180,7 @@ class Diffusion(nn.Module):
         x_t = torch.sqrt(this_alpha_bar_t) * x_0 + torch.sqrt(1 - this_alpha_bar_t)*noise
         return x_t
 
-    def p_losses(self, x_0, t, noise):
+    def p_losses(self, x_0, t, noise, text_encoding):
         """
         Computes the loss for the forward diffusion.
         Args:
@@ -196,13 +196,13 @@ class Diffusion(nn.Module):
         if noise is None:
             noise = torch.randn(x_0.shape)
         x_t = self.q_sample(x_0, t, noise)
-        noise_pred = self.model(x_t, t)
+        noise_pred = self.model(x_t, t, text_encoding)
         loss_func = nn.L1Loss()
         loss = loss_func(noise_pred, noise)
         return loss
         # ####################################################
 
-    def forward(self, x_0, noise):
+    def forward(self, x_0, noise, text_encoding):
         """
         Computes the loss for the forward diffusion.
         Args:
@@ -215,4 +215,4 @@ class Diffusion(nn.Module):
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
         ###### TODO: Implement the forward function #######
         t = torch.randint(0, self.num_timesteps, (b, )).to(device)
-        return self.p_losses(x_0, t, noise)
+        return self.p_losses(x_0, t, noise, text_encoding)
