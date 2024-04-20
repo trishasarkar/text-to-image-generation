@@ -1,15 +1,20 @@
 import os
 import torch
+import pickle
 
 from torch.utils import data
 from pathlib import Path
 from torch.optim import Adam
 from torchvision import transforms, utils
 from PIL import Image
+from transformers import BertTokenizer
+import torch
 
 from tqdm import tqdm
 from cleanfid import fid
 import wandb
+
+
 
 
 def cycle(dl):
@@ -18,23 +23,21 @@ def cycle(dl):
             yield data
 
 
-class Dataset(data.Dataset):
+class CustomDataset(data.Dataset):
     def __init__(
-        self, folder, image_size, data_class, augment=False, exts=["jpg", "jpeg", "png"]
+        self, image_folder, text_file, image_size, data_class='', augment=False, exts=["jpg", "jpeg", "png"]
     ):
         super().__init__()
-        self.folder = folder
+        self.image_folder = image_folder
+        self.text_file = text_file
         self.image_size = image_size
-        if data_class == "all" or data_class == None:
-            self.paths = [
-                p for ext in exts for p in Path(f"{folder}").glob(f"**/*.{ext}")
-            ]
-        else:
-            self.paths = [
-                p
-                for ext in exts
-                for p in Path(f"{folder}/{data_class}").glob(f"*.{ext}")
-            ]
+
+        self.paths = [p for ext in exts for p in Path(image_folder).glob(f"*.{ext}")]
+
+        print(text_file)
+        with open(text_file, "rb") as f:
+            self.texts = pickle.load(f)
+        f.close()
 
         if augment:
             self.transform = transforms.Compose(
@@ -60,17 +63,39 @@ class Dataset(data.Dataset):
         return len(self.paths)
 
     def __getitem__(self, index):
-        path = self.paths[index]
-        img = Image.open(path)
-        img = img.convert("RGB")
-        return self.transform(img)
+        img_path = self.paths[index]
+        img = Image.open(img_path).convert("RGB")
+        img = self.transform(img)
 
+        # Get corresponding text data
+        img_name = os.path.splitext(os.path.basename(img_path))[0]
+        text = self.texts.get(img_name, "")
+
+        return img, text
+
+class LLM:
+    def __init__(self, model_name = "bert-base-uncased"):
+        self.tokenizer = BertTokenizer.from_pretrained(model_name)
+
+    def encode_batch(self, texts):
+        """
+        Encodes a batch of texts using the BertTokenizer.
+
+        Args:
+            texts (list of str): List of input texts to encode.
+
+        Returns:
+            torch.Tensor: Tensor of token ids for the encoded texts.
+        """
+        encoded_batch = self.tokenizer(texts, padding=True, truncation=True, return_tensors='pt')
+        return encoded_batch['input_ids']
 
 class Trainer(object):
     def __init__(
         self,
         diffusion_model,
         folder,
+        text_file,
         *,
         image_size=128,
         train_batch_size=32,
@@ -100,8 +125,9 @@ class Trainer(object):
         self.fid = fid
 
         augment_data = True if dataset == "train" else False
-        self.train_folder = folder
-        self.ds = Dataset(folder, image_size, data_class, augment=augment_data)
+        self.train_folder = folder  # image folder
+        self.text_file = text_file
+        self.ds = CustomDataset(folder, text_file, image_size, augment=augment_data)
         print(f"dataset length: {len(self.ds)}, dataset class: {data_class}")
 
         self.dl = cycle(
@@ -129,6 +155,8 @@ class Trainer(object):
 
         if load_path != None:
             self.load(load_path)
+
+        self.LLM = LLM()
 
     def save(self, itrs=None):
         data = {
@@ -164,10 +192,15 @@ class Trainer(object):
         for self.step in tqdm(range(start_step, self.train_num_steps), desc="steps"):
             u_loss = 0
             for i in range(self.gradient_accumulate_every):
-                data_1 = next(self.dl)
+                data = next(self.dl)
+                data_1, text = data[0].to(self.device), data[1]  # Separate image and text
                 data_2 = torch.randn_like(data_1)
                 
-                text_encoding = self.LLM(text)
+                text_encoding = self.LLM.encode_batch(text).to(self.device)  # Encode text
+
+                loss = torch.mean(self.model(data_1, data_2, text_encoding))
+                
+                text_encoding = self.LLM.encode_batch(text)
 
                 data_1, data_2 = data_1.to(self.device), data_2.to(self.device)
                 loss = torch.mean(self.model(data_1, data_2, text_encoding))
