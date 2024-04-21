@@ -2,7 +2,7 @@
 from trainer import Trainer
 from diffusion import Diffusion
 # from unet import Unet
-from diffusers.models.unets.unet_2d_condition import UNet2DCondition
+from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 import argparse
 import wandb
 import torch
@@ -65,10 +65,9 @@ if __name__ == "__main__":
         config=args.__dict__,
         reinit=True,
         name=args.save_folder.split("/")[-1],
-        dir="C:\\Users\\aravi\\Downloads",
     )
 
-    model = UNet2DCondition(in_channels = 3, out_channels = 3).to(device)
+    model = UNet2DConditionModel(in_channels = 3, out_channels = 3).to(device)
 
     diffusion = Diffusion(
         model,
