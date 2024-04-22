@@ -7,14 +7,14 @@ from pathlib import Path
 from torch.optim import Adam
 from torchvision import transforms, utils
 from PIL import Image
-from transformers import BertTokenizer
+from transformers import CLIPTextModel, CLIPTokenizer
 import torch
 
 from tqdm import tqdm
 from cleanfid import fid
 import wandb
 
-
+pretrained_model_name_or_path = "CompVis/stable-diffusion-v1-5"
 
 
 def cycle(dl):
@@ -73,11 +73,17 @@ class CustomDataset(data.Dataset):
 
         return img, text
 
-class LLM:
-    def __init__(self, model_name = "bert-base-uncased"):
-        self.tokenizer = BertTokenizer.from_pretrained(model_name)
+from compel import Compel, ReturnedEmbeddingsType
+from diffusers import DiffusionPipeline
+import torch
 
-    def encode_batch(self, texts):
+
+class LLM:
+    def __init__(self):
+        self.tokenizer = CLIPTokenizer.from_pretrained(pretrained_model_name_or_path, subfolder="tokenizer")
+        self.text_encoder = CLIPTextModel.from_pretrained(pretrained_model_name_or_path, subfolder="text_encoder")
+
+    def encode_batch_1(self, texts):
         """
         Encodes a batch of texts using the BertTokenizer.
 
@@ -87,8 +93,19 @@ class LLM:
         Returns:
             torch.Tensor: Tensor of token ids for the encoded texts.
         """
-        encoded_batch = self.tokenizer(texts, padding=True, truncation=True, return_tensors='pt')
-        return encoded_batch['input_ids']
+        text_encoding = []
+        for text in texts:
+            text_tokens = self.tokenizer(
+                text, return_tensors="pt"
+            ).input_ids
+            # print(f"text_tokens.shape = {text_tokens.shape}")
+            encoder_hidden_states = self.text_encoder(
+                    text_tokens, return_dict=False)[0]
+            # print(f"encoder_hidden_states.shape = {encoder_hidden_states.shape}")
+            text_encoding.append(encoder_hidden_states)
+        ret = torch.cat(text_encoding, dim=1)
+        # print(f"ret.shape = {ret.shape}")
+        return ret
 
 class Trainer(object):
     def __init__(
