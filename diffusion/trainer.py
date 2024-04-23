@@ -9,12 +9,14 @@ from torchvision import transforms, utils
 from PIL import Image
 from transformers import CLIPTextModel, CLIPTokenizer
 import torch
+import random
+import numpy as np
 
 from tqdm import tqdm
 from cleanfid import fid
 import wandb
 
-pretrained_model_name_or_path = "CompVis/stable-diffusion-v1-5"
+pretrained_model_name_or_path = "runwayml/stable-diffusion-v1-5"
 
 
 def cycle(dl):
@@ -23,21 +25,40 @@ def cycle(dl):
             yield data
 
 
+import os
+import pickle
+from pathlib import Path
+from PIL import Image
+from torchvision import transforms
+from torch.utils import data
+
 class CustomDataset(data.Dataset):
-    def __init__(
-        self, image_folder, text_file, image_size, data_class='', augment=False, exts=["jpg", "jpeg", "png"]
-    ):
+    def __init__(self, image_folder, text_file, image_size, data_class='', augment=False, exts=["npy"]):
         super().__init__()
         self.image_folder = image_folder
         self.text_file = text_file
         self.image_size = image_size
+        
+        print("image folder", self.image_folder)
+        print("text file", self.text_file)
+        
 
-        self.paths = [p for ext in exts for p in Path(image_folder).glob(f"*.{ext}")]
+        # Filter paths to include only .npy files
+        #self.paths = [p for p in Path(image_folder).glob("*.npy")]
+        # self.paths = [p for ext in exts for p in Path(image_folder).glob(f"*.{ext}")]
 
-        print(text_file)
+        #self.paths = [os.path.join(image_folder, f) for f in os.listdir(image_folder)]
+        
+        self.paths = []
+        for root, dirs, files in os.walk(self.image_folder):
+            for file in files:
+                p = os.path.join(root, file)
+                self.paths.append(p)
+                
+        
+
         with open(text_file, "rb") as f:
             self.texts = pickle.load(f)
-        f.close()
 
         if augment:
             self.transform = transforms.Compose(
@@ -64,18 +85,24 @@ class CustomDataset(data.Dataset):
 
     def __getitem__(self, index):
         img_path = self.paths[index]
-        img = Image.open(img_path).convert("RGB")
-        img = self.transform(img)
+        
+        # Load the pixel data from the .npy file
+        pixel_data = np.load(img_path)
+
+        # Create a PIL image from the pixel data
+        # img = Image.fromarray(pixel_data.astype('uint8')).convert("RGB")
+        # img = Image.fromarray(np.load(img_path)).convert("RGB")  # Load image from .npy file
+        # img = Image.fromarray(pixel_data)
+        img = torch.from_numpy(pixel_data)
+        # img = self.transform(img)
 
         # Get corresponding text data
         img_name = os.path.splitext(os.path.basename(img_path))[0]
-        text = self.texts.get(img_name, "")
+        text_dict = self.texts[img_name]  # Get the dictionary associated with img_name
+        text = text_dict["text"]  # Get the value associated with the key "text"
 
         return img, text
 
-from compel import Compel, ReturnedEmbeddingsType
-from diffusers import DiffusionPipeline
-import torch
 
 
 class LLM:
@@ -93,11 +120,13 @@ class LLM:
         Returns:
             torch.Tensor: Tensor of token ids for the encoded texts.
         """
+        print(texts)
         text_encoding = []
         for text in texts:
             text_tokens = self.tokenizer(
                 text, return_tensors="pt"
             ).input_ids
+            print(text_tokens.shape)
             # print(f"text_tokens.shape = {text_tokens.shape}")
             encoder_hidden_states = self.text_encoder(
                     text_tokens, return_dict=False)[0]
@@ -118,7 +147,7 @@ class Trainer(object):
         train_batch_size=32,
         train_lr=2e-5,
         train_num_steps=100000,
-        gradient_accumulate_every=2,
+        gradient_accumulate_every=64,
         save_and_sample_every=2000,
         results_folder="./results",
         load_path=None,
@@ -127,10 +156,11 @@ class Trainer(object):
         data_class=None,
         device=None,
         fid=False,
+        val_folder=None,
+        val_text_file=None,
     ):
         super().__init__()
         self.model = diffusion_model
-
         self.save_and_sample_every = save_and_sample_every
 
         self.batch_size = train_batch_size
@@ -141,10 +171,13 @@ class Trainer(object):
 
         self.fid = fid
 
-        augment_data = True if dataset == "train" else False
+        augment_data = False if dataset == "train" else False
         self.train_folder = folder  # image folder
         self.text_file = text_file
         self.ds = CustomDataset(folder, text_file, image_size, augment=augment_data)
+        self.ds_val = CustomDataset(val_folder, val_text_file, image_size, augment=augment_data)
+        self.val_indices = list(range(len(self.ds_val)))  # Store indices of validation dataset
+        random.shuffle(self.val_indices)  # Shuffle indices
         print(f"dataset length: {len(self.ds)}, dataset class: {data_class}")
 
         self.dl = cycle(
@@ -213,11 +246,7 @@ class Trainer(object):
                 data_1, text = data[0].to(self.device), data[1]  # Separate image and text
                 data_2 = torch.randn_like(data_1)
                 
-                text_encoding = self.LLM.encode_batch(text).to(self.device)  # Encode text
-
-                loss = torch.mean(self.model(data_1, data_2, text_encoding))
-                
-                text_encoding = self.LLM.encode_batch(text)
+                text_encoding = self.LLM.encode_batch_1(text).to(self.device)  # Encode text
 
                 data_1, data_2 = data_1.to(self.device), data_2.to(self.device)
                 loss = torch.mean(self.model(data_1, data_2, text_encoding))
@@ -235,15 +264,29 @@ class Trainer(object):
                 save_folder = str(self.results_folder / f"sample_ddpm_{milestone}")
                 if not os.path.exists(save_folder):
                     os.makedirs(save_folder)
-
-                images = self.model.sample(512)
-                for j in range(512):
-                    utils.save_image(
-                        images[j],
-                        os.path.join(
-                            save_folder, f"sample_{j}_{self.step}.png"
-                        ),
-                    )
+                    
+                random_text_prompts = []
+                random.shuffle(self.val_indices)
+                # Sample 500 text prompts
+                for i in range(500):
+                    # Get random index
+                    index = self.val_indices[i]
+                    # Get data from the dataset using the random index
+                    images, texts = self.ds_val[index]
+                    # Get text from the batch
+                    text = texts  # Assuming batch size is 1
+                    # Add text to the list
+                    random_text_prompts.append(text)
+                for j, text_prompt in enumerate(random_text_prompts):
+                    text_encoding = self.LLM.encode_batch(text_prompt).to(self.device)
+                    images = self.model.sample(1, text_encoding)
+                    for _ in range(1):
+                        utils.save_image(
+                            images[0],
+                            os.path.join(
+                                save_folder, f"sample_{j}_{self.step}.png"
+                            ),
+                        )
 
                 if self.fid:
                     # Make sure the images in the validation set are of the same size
