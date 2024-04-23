@@ -246,7 +246,7 @@ class Trainer(object):
             u_loss = 0
             self.opt.zero_grad()
             for i in range(self.gradient_accumulate_every):
-                print("Starting", i)
+                # print("Starting", i)
                 data = next(self.dl)
                 data_1, text = data[0].to(self.device), data[1]  # Separate image and text
                 data_2 = torch.randn_like(data_1)
@@ -258,16 +258,9 @@ class Trainer(object):
                 with autocast():  # Enable autocasting for mixed precision
                     loss = torch.mean(self.model(data_1, data_2, text_encoding))
                     u_loss = u_loss + loss.item()
-                # print("First model parameter dtype:", next(self.model.parameters()).dtype)
-                # print("Loss dtype:", loss.dtype)
 
-                # Scale the loss and perform backward pass
-                    print("Model Parameter dtype:", next(self.model.parameters()).dtype)
-                    print("Loss dtype:", loss.dtype)
-                    print("Autocast State:", torch.is_autocast_enabled())
-
-                    scaler.scale(loss / self.gradient_accumulate_every).backward()
-                print("Gradients dtype:", next(self.model.parameters()).grad.dtype)
+                scaler.scale(loss / self.gradient_accumulate_every).backward()
+                # print("Gradients dtype:", next(self.model.parameters()).grad.dtype)
 
 
 
@@ -282,8 +275,8 @@ class Trainer(object):
 
             if (self.step + 1) % self.save_and_sample_every == 0:
                 milestone = self.step // self.save_and_sample_every
-                self.save(milestone)
                 save_folder = str(self.results_folder / f"sample_ddpm_{milestone}")
+                self.save(milestone)
                 if not os.path.exists(save_folder):
                     os.makedirs(save_folder)
                 npys_folder = os.path.join(save_folder, "NPYs")
@@ -294,7 +287,9 @@ class Trainer(object):
                 random_text_prompts = []
                 random.shuffle(self.val_indices)
                 # Sample 500 text prompts
-                for i in range(10):
+                num_images = 1
+                print("Running Inference:")
+                for i in tqdm(range(num_images), ncols=80):
                     # Get random index
                     index = self.val_indices[i]
                     # Get data from the dataset using the random index
@@ -304,7 +299,7 @@ class Trainer(object):
                     # Add text to the list
                     random_text_prompts.append(text)
                 for j, text_prompt in enumerate(random_text_prompts):
-                    text_encoding = self.LLM.encode_batch(text_prompt).to(self.device)
+                    text_encoding = self.LLM.encode_batch_1(text_prompt).to(self.device).detach()
                     image = self.model.sample(1, text_encoding)[0]
                     # for _ in range(1):
                     #     utils.save_image(
@@ -317,14 +312,14 @@ class Trainer(object):
                     np.save(filename, image.detach().cpu().numpy())
                 decode_save(npys_folder, reconstructed_folder)
 
-                for i in range(100):
+                for i in range(num_images):
                     # Construct the image path
                     img_path = os.path.join(reconstructed_folder, f"{i}.png")
                     
                     # Open the image file
                     img = Image.open(img_path)
                     # Log the image to wandb with the corresponding caption
-                    wandb.log({"reconstructed_images": [wandb.Image(img, caption=random_text_prompts[i-1])]}, step=milestone)
+                    wandb.log({"reconstructed_images": [wandb.Image(img, caption=random_text_prompts[i-1])]})
 
                 if self.fid:
                     # Make sure the images in the validation set are of the same size

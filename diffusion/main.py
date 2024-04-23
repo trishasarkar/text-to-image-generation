@@ -6,6 +6,8 @@ from diffusers.models.unets.unet_2d_condition import UNet2DConditionModel
 import argparse
 import wandb
 import torch
+# torch.backends.cudnn.enabled = False
+
 
 pretrained_model_name_or_path = "runwayml/stable-diffusion-v1-5"
 # fix random seed for reproducibility
@@ -70,7 +72,7 @@ if __name__ == "__main__":
     )
 
     model = UNet2DConditionModel.from_pretrained(
-            pretrained_model_name_or_path, subfolder="unet", torch_dtype=torch.float16
+            pretrained_model_name_or_path, subfolder="unet", torch_dtype=torch.float32
         ).to(device)
     diffusion = Diffusion(
         model,
