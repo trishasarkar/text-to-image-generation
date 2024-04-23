@@ -15,3 +15,4 @@ data/
 *.npy
 *.ckpt
 *.pkl
+*/wandb/*

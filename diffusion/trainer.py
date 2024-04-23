@@ -11,10 +11,18 @@ from transformers import CLIPTextModel, CLIPTokenizer
 import torch
 import random
 import numpy as np
-
+from decode_save_helper import decode_save
 from tqdm import tqdm
 from cleanfid import fid
 import wandb
+from torch.cuda.amp import GradScaler, autocast
+
+
+device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available() else "cpu"
+    )
 
 pretrained_model_name_or_path = "runwayml/stable-diffusion-v1-5"
 
@@ -108,7 +116,9 @@ class CustomDataset(data.Dataset):
 class LLM:
     def __init__(self):
         self.tokenizer = CLIPTokenizer.from_pretrained(pretrained_model_name_or_path, subfolder="tokenizer")
-        self.text_encoder = CLIPTextModel.from_pretrained(pretrained_model_name_or_path, subfolder="text_encoder")
+        self.text_encoder = CLIPTextModel.from_pretrained(pretrained_model_name_or_path, subfolder="text_encoder").to(device)
+        for param in self.text_encoder.parameters():
+            param.requires_grad = False
 
     def encode_batch_1(self, texts):
         """
@@ -120,13 +130,13 @@ class LLM:
         Returns:
             torch.Tensor: Tensor of token ids for the encoded texts.
         """
-        print(texts)
+        # print(texts)
         text_encoding = []
         for text in texts:
             text_tokens = self.tokenizer(
                 text, return_tensors="pt"
-            ).input_ids
-            print(text_tokens.shape)
+            ).input_ids.to(device)
+            # print(text_tokens.shape)
             # print(f"text_tokens.shape = {text_tokens.shape}")
             encoder_hidden_states = self.text_encoder(
                     text_tokens, return_dict=False)[0]
@@ -134,7 +144,7 @@ class LLM:
             text_encoding.append(encoder_hidden_states)
         ret = torch.cat(text_encoding, dim=1)
         # print(f"ret.shape = {ret.shape}")
-        return ret
+        return ret.to(device)
 
 class Trainer(object):
     def __init__(
@@ -229,46 +239,62 @@ class Trainer(object):
         start_step = self.step
         self.model.train()
         self.model.to(self.device)
-        """
-        Training loop
-        
-            1. Use wandb.log to log the loss of each step 
-                This loss is the average of the loss over accumulation steps 
-            2. Save the sampled images every self.save_and_sample_every steps
-            3. Comopute the FID score
-            4. Save the model every self.save_and_sample_every steps
-        """
-        milestone = 0
+        scaler = GradScaler()  # Initialize GradScaler
+        print("self.model.dtype", self.model.model.dtype)
+
         for self.step in tqdm(range(start_step, self.train_num_steps), desc="steps"):
             u_loss = 0
+            self.opt.zero_grad()
             for i in range(self.gradient_accumulate_every):
+                print("Starting", i)
                 data = next(self.dl)
                 data_1, text = data[0].to(self.device), data[1]  # Separate image and text
                 data_2 = torch.randn_like(data_1)
-                
-                text_encoding = self.LLM.encode_batch_1(text).to(self.device)  # Encode text
+
+                text_encoding = self.LLM.encode_batch_1(text).to(self.device).detach()  # Encode text
 
                 data_1, data_2 = data_1.to(self.device), data_2.to(self.device)
-                loss = torch.mean(self.model(data_1, data_2, text_encoding))
-                u_loss += loss.item()
-                (loss / self.gradient_accumulate_every).backward()
+                
+                with autocast():  # Enable autocasting for mixed precision
+                    loss = torch.mean(self.model(data_1, data_2, text_encoding))
+                    u_loss = u_loss + loss.item()
+                # print("First model parameter dtype:", next(self.model.parameters()).dtype)
+                # print("Loss dtype:", loss.dtype)
+
+                # Scale the loss and perform backward pass
+                    print("Model Parameter dtype:", next(self.model.parameters()).dtype)
+                    print("Loss dtype:", loss.dtype)
+                    print("Autocast State:", torch.is_autocast_enabled())
+
+                    scaler.scale(loss / self.gradient_accumulate_every).backward()
+                print("Gradients dtype:", next(self.model.parameters()).grad.dtype)
+
+
 
             # use wandb to log the loss
             wandb.log({"loss": u_loss / self.gradient_accumulate_every})
 
-            self.opt.step()
+            # Unscales the gradients and performs optimizer step
+            scaler.step(self.opt)
+            scaler.update()  # Update the scale for next iteration
+
             self.opt.zero_grad()
 
             if (self.step + 1) % self.save_and_sample_every == 0:
                 milestone = self.step // self.save_and_sample_every
+                self.save(milestone)
                 save_folder = str(self.results_folder / f"sample_ddpm_{milestone}")
                 if not os.path.exists(save_folder):
                     os.makedirs(save_folder)
+                npys_folder = os.path.join(save_folder, "NPYs")
+                reconstructed_folder = os.path.join(save_folder, "Reconstructed")
+                os.makedirs(npys_folder, exist_ok=True)
+                os.makedirs(reconstructed_folder, exist_ok=True)
                     
                 random_text_prompts = []
                 random.shuffle(self.val_indices)
                 # Sample 500 text prompts
-                for i in range(500):
+                for i in range(10):
                     # Get random index
                     index = self.val_indices[i]
                     # Get data from the dataset using the random index
@@ -279,32 +305,44 @@ class Trainer(object):
                     random_text_prompts.append(text)
                 for j, text_prompt in enumerate(random_text_prompts):
                     text_encoding = self.LLM.encode_batch(text_prompt).to(self.device)
-                    images = self.model.sample(1, text_encoding)
-                    for _ in range(1):
-                        utils.save_image(
-                            images[0],
-                            os.path.join(
-                                save_folder, f"sample_{j}_{self.step}.png"
-                            ),
-                        )
+                    image = self.model.sample(1, text_encoding)[0]
+                    # for _ in range(1):
+                    #     utils.save_image(
+                    #         images[0],
+                    #         os.path.join(
+                    #             save_folder, f"sample_{j}_{self.step}.png"
+                    #         ),
+                    #     )
+                    filename = os.path.join(npys_folder, f'{j}.npy')
+                    np.save(filename, image.detach().cpu().numpy())
+                decode_save(npys_folder, reconstructed_folder)
+
+                for i in range(10):
+                    # Construct the image path
+                    img_path = os.path.join(reconstructed_folder, f"{i}.png")
+                    
+                    # Open the image file
+                    img = Image.open(img_path)
+                    # Log the image to wandb with the corresponding caption
+                    wandb.log({"reconstructed_images": [wandb.Image(img, caption=random_text_prompts[i-1])]}, step=milestone)
 
                 if self.fid:
                     # Make sure the images in the validation set are of the same size
-                    self.val_folder = self.train_folder.replace("train", "val")
-                    if len(os.listdir(self.val_folder)) == 0:
-                        os.makedirs(self.val_folder, exist_ok=True)
-                        # resize the images in the training set and save them in the validation set
-                        for img_name in os.listdir(
-                            os.path.join(self.train_folder, self.data_class)
-                        ):
-                            img_path = os.path.join(
-                                self.train_folder, self.data_class, img_name
-                            )
-                            img = Image.open(img_path)
-                            img = img.resize((self.image_size, self.image_size))
-                            img.save(os.path.join(self.val_folder, img_name))
+                    # self.val_folder = self.train_folder.replace("train", "val")
+                    # if len(os.listdir(self.val_folder)) == 0:
+                    #     os.makedirs(self.val_folder, exist_ok=True)
+                    #     # resize the images in the training set and save them in the validation set
+                    #     for img_name in os.listdir(
+                    #         os.path.join(self.train_folder, self.data_class)
+                    #     ):
+                    #         img_path = os.path.join(
+                    #             self.train_folder, self.data_class, img_name
+                    #         )
+                    #         img = Image.open(img_path)
+                    #         img = img.resize((self.image_size, self.image_size))
+                    #         img.save(os.path.join(self.val_folder, img_name))
 
-                    fid_score = fid.compute_fid(save_folder, self.val_folder, num_workers=0)
+                    fid_score = fid.compute_fid(reconstructed_folder, "./data/val_images/val_rawimages", num_workers=0)
                     wandb.log({"fid": fid_score})
         self.save()
 

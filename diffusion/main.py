@@ -7,6 +7,7 @@ import argparse
 import wandb
 import torch
 
+pretrained_model_name_or_path = "runwayml/stable-diffusion-v1-5"
 # fix random seed for reproducibility
 torch.manual_seed(2024)
 torch.cuda.manual_seed(2024)
@@ -18,7 +19,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--time_steps",
-        default=500,
+        default=1000,
         type=int,
         help="The number of steps the scheduler takes to go from clean image to an isotropic gaussian. This is also the number of steps of diffusion.",
     )
@@ -29,12 +30,13 @@ if __name__ == "__main__":
         help="The number of iterations for training.",
     )
     parser.add_argument("--save_folder", default="./results_afhq", type=str)
-    parser.add_argument("--data_path", default="./data/train/", type=str)
+    parser.add_argument("--data_path", default="data/train_images/Train_EncodedImages/", type=str)
     parser.add_argument("--load_path", default=None, type=str)
     parser.add_argument(
-        "--data_class", choices=["all", "cat", "dog", "wild"], default="cat", type=str
+        "--data_class", choices=["all", "cat", "dog", "wild"], default="", type=str
     )
-    parser.add_argument("--image_size", default=128, type=int)
+    parser.add_argument("--image_size", default=64, type=int)
+    parser.add_argument("--text_path", default='data/training_merged_output_dict.pkl', type=str)
     parser.add_argument("--batch_size", default=32, type=int)
     parser.add_argument("--learning_rate", default=2e-5, type=float)
     parser.add_argument("--unet_dim", default=64, type=int)
@@ -67,8 +69,9 @@ if __name__ == "__main__":
         name=args.save_folder.split("/")[-1],
     )
 
-    model = UNet2DConditionModel(in_channels = 3, out_channels = 3).to(device)
-
+    model = UNet2DConditionModel.from_pretrained(
+            pretrained_model_name_or_path, subfolder="unet", torch_dtype=torch.float32
+        ).to(device)
     diffusion = Diffusion(
         model,
         image_size=args.image_size,
@@ -89,8 +92,12 @@ if __name__ == "__main__":
         dataset="train",
         data_class=args.data_class,
         device=device,
+        shuffle=False,
         save_and_sample_every=args.save_and_sample_every,
         fid=args.fid,
+        val_folder="data/val_images/Val_EncodedImages/",
+        text_file="data/training_merged_output_dict.pkl",
+        val_text_file="data/val_merged_output_dict.pkl",
     )
 
     if args.visualize:
