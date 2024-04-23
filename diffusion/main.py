@@ -70,7 +70,7 @@ if __name__ == "__main__":
     )
 
     model = UNet2DConditionModel.from_pretrained(
-            pretrained_model_name_or_path, subfolder="unet", torch_dtype=torch.float32
+            pretrained_model_name_or_path, subfolder="unet", torch_dtype=torch.float16
         ).to(device)
     diffusion = Diffusion(
         model,

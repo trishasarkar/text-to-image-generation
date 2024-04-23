@@ -317,7 +317,7 @@ class Trainer(object):
                     np.save(filename, image.detach().cpu().numpy())
                 decode_save(npys_folder, reconstructed_folder)
 
-                for i in range(10):
+                for i in range(100):
                     # Construct the image path
                     img_path = os.path.join(reconstructed_folder, f"{i}.png")
                     
