@@ -287,7 +287,7 @@ class Trainer(object):
                 random_text_prompts = []
                 random.shuffle(self.val_indices)
                 # Sample 500 text prompts
-                num_images = 1
+                num_images = 3
                 print("Running Inference:")
                 for i in tqdm(range(num_images), ncols=80):
                     # Get random index

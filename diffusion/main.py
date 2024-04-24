@@ -88,7 +88,7 @@ if __name__ == "__main__":
         train_batch_size=args.batch_size,
         train_lr=args.learning_rate,
         train_num_steps=args.train_steps,  # total training steps
-        gradient_accumulate_every=2,  # gradient accumulation steps
+        gradient_accumulate_every=4,  # gradient accumulation steps
         results_folder=args.save_folder,
         load_path=args.load_path,
         dataset="train",
