@@ -116,7 +116,7 @@ class Diffusion(nn.Module):
         model_inp[:, :3, :, :] = x
         eps_pred = self.model(model_inp, torch.full((x.shape[0], ), t_index).to(device), text_encoding, return_dict=False)[0][:, :3]
         x_0_pred = (x - torch.sqrt(1-this_alpha_bar_t)*eps_pred)/torch.sqrt(this_alpha_bar_t)
-        x_0_pred = torch.clamp(x_0_pred, -1, 1)
+        # x_0_pred = torch.clamp(x_0_pred, -1, 1)
 
         if t_index == 0:
             return x_0_pred*(1-this_alpha_t)/(1-this_alpha_bar_t)
@@ -144,8 +144,8 @@ class Diffusion(nn.Module):
         # Hint: to get time index, you can use torch.full()
         for t_index in range(self.num_timesteps-1, -1, -1):
             img = self.p_sample(img, None, t_index, text_encoding)
-        img = torch.clamp(img, -1, 1)
-        img = unnormalize_to_zero_to_one(img)
+        # img = torch.clamp(img, -1, 1)
+        # img = unnormalize_to_zero_to_one(img)
         return img
         # ####################################################
 

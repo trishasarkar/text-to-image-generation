@@ -364,8 +364,11 @@ class Trainer(object):
         self.model.eval()
         self.model.to(self.device)
 
-        data_1 = next(self.dl)
+        data = next(self.dl)
+        data_1, text = data[0].to(self.device), data[1]  # Separate image and text
         data_2 = torch.randn_like(data_1)
+
+        text_encoding = self.LLM.encode_batch_1(text).to(self.device).detach()
 
         data_1, data_2 = data_1.to(self.device), data_2.to(self.device)
 
@@ -374,7 +377,8 @@ class Trainer(object):
 
         # visualize forward diffusion process
         img_forward = []
-        for t in t_visualize:
+        print("Starting Forward diffusion")
+        for t in tqdm(t_visualize, ncols=80):
             img = self.model.q_sample(
                 data_1,
                 torch.full(
@@ -382,22 +386,57 @@ class Trainer(object):
                 ),
                 data_2,
             )
-            img = torch.clamp(img, -1, 1)
-            img = (img + 1) / 2
+            # img = torch.clamp(img, -1, 1)
+            # img = (img + 1) / 2
             img_forward.append(img)
 
         # visualize backward diffusion process
+        
         img_backward = []
-        for t in range(self.model.num_timesteps - 1, -1, -1):
+        text_encoding = self.LLM.encode_batch_1(text).to(self.device).detach()
+        print("Starting Backward diffusion")
+        for t in tqdm(range(self.model.num_timesteps - 1, -1, -1), ncols=80):
             img = self.model.p_sample(
                 img,
                 torch.full((img.shape[0],), t, device=img.device, dtype=torch.long),
                 t,
+                text_encoding,
             )
             if t in t_visualize:
                 img_vis = torch.clamp(img, -1, 1)
                 img_vis = (img_vis + 1) / 2
                 img_backward.append(img_vis)
+        backward_npys = os.path.join(self.results_folder, "backward_npys")
+        forward_npys = os.path.join(self.results_folder, "forward_npys")
+        backward_imgs = os.path.join(self.results_folder, "backward_imgs")
+        forward_imgs = os.path.join(self.results_folder, "forward_imgs")
+        os.makedirs(backward_npys, exist_ok=True)
+        os.makedirs(forward_npys, exist_ok=True)
+        os.makedirs(backward_imgs, exist_ok=True)
+        os.makedirs(forward_imgs, exist_ok=True)
+        for i, img in enumerate(img_forward):
+            filename = os.path.join(forward_npys, f'{i:04}.npy')
+            np.save(filename, img.detach().cpu().numpy())
+        decode_save(forward_npys, forward_imgs)
+        for i, img in enumerate(img_backward):
+            filename = os.path.join(backward_npys, f'{i:04}.npy')
+            np.save(filename, img.detach().cpu().numpy())
+        decode_save(backward_npys, backward_imgs)
+        img_forward = []
+        for i in sorted(os.listdir(forward_imgs)):
+            # Construct the image path
+            img_path = os.path.join(forward_imgs, i)
+            # Open the image file
+            img = Image.open(img_path)
+            img_forward.append(img)
+        img_backward = []
+        for i in sorted(os.listdir(backward_imgs)):
+            # Construct the image path
+            img_path = os.path.join(backward_imgs, i)
+            # Open the image file
+            img = Image.open(img_path)
+            img_backward.append(img)
+        
 
         # save the images in wandb
         wandb.log({"forward_diffusion": [wandb.Image(img) for img in img_forward]})
