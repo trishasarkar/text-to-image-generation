@@ -349,7 +349,7 @@ class Trainer(object):
         print("training completed")
 
     def visualize_diffusion(
-        self, text_prompt
+        self,
     ):
         """
         Use trained model to visualize forward and backward diffusion process
@@ -371,7 +371,7 @@ class Trainer(object):
         data_1, text = data[0].to(self.device), data[1]  # Separate image and text
         data_2 = torch.randn_like(data_1)
 
-        text_encoding = self.LLM.encode_batch_1(text_prompt).to(self.device).detach()
+        text_encoding = self.LLM.encode_batch_1(text).to(self.device).detach()
         print("Text encoding acquired")
 
         data_1, data_2 = data_1.to(self.device), data_2.to(self.device)
@@ -443,5 +443,5 @@ class Trainer(object):
 
         # save the images in wandb
         wandb.log({"forward_diffusion": [wandb.Image(img, caption=text) for img in img_forward]})
-        wandb.log({"backward_diffusion": [wandb.Image(img, caption=text_prompt) for img in img_backward]})
+        wandb.log({"backward_diffusion": [wandb.Image(img, caption=text) for img in img_backward]})
         # ####################################################################

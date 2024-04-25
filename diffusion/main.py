@@ -52,7 +52,7 @@ if __name__ == "__main__":
              "sampling example images, and optional calculating FID"
     )
 
-    parser.add_argument("--visualize", default=None, type=str)
+    parser.add_argument("--visualize", action="store_true")
 
     args = parser.parse_args()
     print(args)
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         dataset="train",
         data_class=args.data_class,
         device=device,
-        shuffle=False,
+        shuffle=True,
         save_and_sample_every=args.save_and_sample_every,
         fid=args.fid,
         val_folder="data/val_images/Val_EncodedImages/",
@@ -102,10 +102,10 @@ if __name__ == "__main__":
         val_text_file="data/val_merged_output_dict.pkl",
     )
 
-    if args.visualize is not None:
+    if args.visualize:
         if args.load_path is None:
             print("No model to visualize, Please provide a load path.")
             exit(0)
-        trainer.visualize_diffusion(args.visualize)
+        trainer.visualize_diffusion()
     else:
         trainer.train()
