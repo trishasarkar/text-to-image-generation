@@ -70,7 +70,7 @@ bash script.sh
 ```
 * Visualising the model
 
-Run the following commands on CLI to visualise the diffusion timesteps. The visualise_script.sh file contains the parameters, the logs get added to wandb. The code currently visualises the predictions on the validation dataset, the dataloader in the visualise_diffusion() method in the Trainer.py.
+Run the following commands on CLI to visualise the diffusion timesteps. The visualise_script.sh file contains the parameters, the logs get added to wandb. The code currently visualises the predictions on the training dataset, the dataloader in the visualise_diffusion() method in the Trainer.py.
 
 ```bash
 cd diffusion
