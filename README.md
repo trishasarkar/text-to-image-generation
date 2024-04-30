@@ -94,7 +94,7 @@ Here is a description of most important files in the diffusion folder.
 
 ## Contributers
 
-Aravind Mysore (amysore2)
-Trisha Sarkar (trishasa)
-Madhura Deshpande (mvdeshpa)
-Geerisha Jain (geerishj)
+* Aravind Mysore (amysore2)
+* Trisha Sarkar (trishasa)
+* Madhura Deshpande (mvdeshpa)
+* Geerisha Jain (geerishj)
