@@ -36,6 +36,8 @@ pip install -r requirements.txt
   The data folder with the images and text encoded can be found here: [Dataset Drive Link](https://drive.google.com/file/d/1lhCzn_IDEMmsW9RbGzN-RxQ8Iq_N1Je5/view?usp=sharing)
 
  The data folder should be unzipped and both the data and the checkpoint should be added to the repository following this structure:
+
+ 
   ├── text-to-image-generation   
   
     ├── baseline_dallE      
