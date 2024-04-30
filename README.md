@@ -36,11 +36,14 @@ pip install -r requirements.txt
   The data folder with the images and text encoded can be found here: [Dataset Drive Link](https://drive.google.com/file/d/1lhCzn_IDEMmsW9RbGzN-RxQ8Iq_N1Je5/view?usp=sharing)
 
  The folder should be unzipped and added to the repository following this structure:
-  ├── text-to-image-generation                   
-    ├── baseline_dallE                    
+  ├── text-to-image-generation   
+  
+    ├── baseline_dallE      
     ├── baseline_Lafite                     
     ├── diffusion
+    
       ├──  data
+      
         ├── EncodedImages
         ├── train_images                          # training encoded images
         ├── val_images                            # validation encoded images
@@ -51,7 +54,9 @@ pip install -r requirements.txt
         ├── Val_EncodedImages.zip          
         ├── val_merged_output_dict.pkl            # validation text encodings
         ├── model_19.pt                           # model checkpoint
-      ├── ...                       
+      
+      ├── ...  
+      
     ├── ImageEncoder                   
     └── README.md
   
