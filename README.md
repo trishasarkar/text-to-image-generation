@@ -1,4 +1,4 @@
-# Text-to-Image Generation using Latent Diffusion
+# Text-to-Image Generation using Latent Diffusion 
 11-785 Course Project (Team 6)
 
 
