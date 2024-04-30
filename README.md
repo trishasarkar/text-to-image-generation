@@ -14,18 +14,17 @@ conda activate ENVNAME
 * Install all requirements present in the diffusion/requirements.txt folder. 
 
 ```bash
+cd diffusion
 pip install -r diffusion/requirements.txt
 ```
+
 * Login to wandb and add your API Key.
 
 ```bash
 wandb login
 ```
 
-```bash
-cd diffusion
-pip install -r requirements.txt
-```
+
 
 ## Usage
 
@@ -55,8 +54,8 @@ pip install -r requirements.txt
         ├── train_merged_output_dict.pkl          # trained text encodings
         ├── Val_EncodedImages.zip          
         ├── val_merged_output_dict.pkl            # validation text encodings
-        ├── model_19.pt                           # model checkpoint
-      
+      ├── model_19.pt                             # model checkpoint
+      ├── ae_model.ckpt                           # image encoder-decoder model checkpoint
       ├── ...  
       
     ├── ImageEncoder                   
