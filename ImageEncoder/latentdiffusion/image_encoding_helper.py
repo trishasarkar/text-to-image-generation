@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, Dataset
 import glob
 from PIL import Image
 import yaml
-from ldm.models.autoencoder import VQModel
+from ImageEncoder.latentdiffusion.ldm.models.autoencoder import VQModel
 from tqdm import tqdm
 import torch
 from PIL import Image
@@ -16,8 +16,8 @@ def get_device():
     device = ("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     return device
 
-def get_model():
-    with open('models/first_stage_models/vq-f4/config.yaml', 'r') as file:
+def get_model(yaml_path, ckpt_path):
+    with open(yaml_path, 'r') as file:
         config = yaml.safe_load(file)["model"]["params"]
 
     ddconfig = config['ddconfig']
@@ -25,7 +25,6 @@ def get_model():
 
     n_embed = config["n_embed"]
     embed_dim = config["embed_dim"]
-    ckpt_path = 'model.ckpt'
     device = get_device()
     ae_model = VQModel(ddconfig, lossconfig, n_embed, embed_dim, ckpt_path=ckpt_path).to(device)
 

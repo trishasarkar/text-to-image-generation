@@ -210,8 +210,8 @@ class Unet(nn.Module):
         init_dim = None,
         out_dim = None,
         dim_mults=(1, 2, 4, 8),
-        channels = 3,
-        resnet_block_groups = 8,
+        channels = 4,
+        resnet_block_groups = 2,
     ):
         super().__init__()
 
