@@ -4,11 +4,11 @@
 
 ## Installation
 
-* Create a virtual environment with the python==3.9 and activate it
+* Create a virtual environment with the python==3.9 and activate it. <ENVNAME> is your desired environment name.
 
 ```bash
-conda create -n <ENVNAME> python=3.9
-conda activate <ENVNAME>
+conda create -n ENVNAME python=3.9
+conda activate ENVNAME
 ```
 
 * Install all requirements present in the diffusion/requirements.txt folder. 
