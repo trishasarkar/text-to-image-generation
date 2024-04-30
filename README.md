@@ -78,6 +78,23 @@ cd diffusion
 bash visualise_script.sh
 ```
 
+## Arguments and Hyperparameters
+
+* time_steps: The number of steps the scheduler takes to go from a clean image to an isotropic Gaussian. This is also the number of steps of diffusion. Value: 1000.
+* train_steps: The number of iterations for training. Value: 50000.
+* save_folder: Path to the folder where results will be saved. Value: "./results_afhq".
+* data_path: Path to the directory containing training images. Value: "data/train_images/Train_EncodedImages/".
+* load_path: Path to the pre-trained model to load. Default Value: None.
+* image_size: Size of input images. Value: 64.
+* text_path: Path to the text file containing training data. Value: 'data/training_merged_output_dict.pkl'.
+* batch_size: Batch size for training. Value: 32.
+* learning_rate: Learning rate for training. Value: 2e-5.
+* unet_dim: Dimension of the U-Net. Value: 64.
+* unet_dim_mults: Multipliers for each layer's dimensions in the U-Net. Value: [1, 2, 4, 8].
+* fid: Flag to calculate FID (Fréchet Inception Distance) during training. Value: False.
+* save_and_sample_every: The number of steps between periodically saving the model state, sampling example images, and optionally calculating FID. Value: 1000.
+* visualize: Flag to visualize the diffusion process. Value: False.
+
 ## Description of Directories
 
 * baseline_dallE: Our baseline 1 which is a DALLE v1 architecture - this was cloned from their github repository.
