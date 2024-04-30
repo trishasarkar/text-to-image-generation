@@ -7,8 +7,8 @@
 * Create a virtual environment with the python==3.9 and activate it
 
 ```bash
-conda create -n <ENVNAME> python=3.9
-conda activate <ENVNAME>
+conda create -n \<ENVNAME\> python=3.9
+conda activate \<ENVNAME\>
 ```
 
 * Install all requirements present in the diffusion/requirements.txt folder. 
@@ -30,12 +30,12 @@ pip install -r requirements.txt
 ## Usage
 
 * Model Checkpoint:
-  The checkpoint to our best model can be found in the model_19.pt file
+  The checkpoint to our best model can be found in the model_19.pt file: [Model Checkpoint Drive Link](https://drive.google.com/file/d/1jP5XZ9JnKstLjRmUJKOJdrUlw_eit9Lv/view?usp=sharing)
   
 * Data Setup:
   The data folder with the images and text encoded can be found here: [Dataset Drive Link](https://drive.google.com/file/d/1lhCzn_IDEMmsW9RbGzN-RxQ8Iq_N1Je5/view?usp=sharing)
 
- The folder should be unzipped and added to the repository following this structure:
+ The data folder should be unzipped and both the data and the checkpoint should be added to the repository following this structure:
   ├── text-to-image-generation   
   
     ├── baseline_dallE      
