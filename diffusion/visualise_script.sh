@@ -11,7 +11,7 @@ data_folder="./data/val_images/Val_EncodedImages"
 text_file="data/val_merged_output_dict.pkl"
 
 # Path to the folder where results will be saved
-results_folder_base="./val_results"
+results_folder_base="./results"
 
 # # Log in to wandb (if not already logged in)
 # wandb login
@@ -21,7 +21,7 @@ for ((i = 0; i < $num_images; i++)); do
     # Run the visualization for each image
     python main.py \
     --load_path model_19.pt \
-    --save_folder "$results_folder_base/val_sample_ddpm_$i" \
+    --save_folder "$results_folder_base/sample_ddpm_$i" \
     --time_steps 1000 \
     --train_steps 1000 \
     --image_size 64 \
