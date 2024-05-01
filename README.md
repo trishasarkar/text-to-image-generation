@@ -40,11 +40,14 @@ wandb login
  The data folder should be unzipped and both the data and the checkpoint should be added to the repository following this structure:
 
  
-  ├──text-to-image-generation   
+  ├──text-to-image-generation  
+  
     ├── baseline_dallE      
     ├── baseline_Lafite                     
     ├── diffusion
+    
       ├──  data
+      
         ├── EncodedImages
         ├── train_images                          # training encoded images
         ├── val_images                            # validation encoded images
@@ -54,9 +57,11 @@ wandb login
         ├── train_merged_output_dict.pkl          # trained text encodings
         ├── Val_EncodedImages.zip          
         ├── val_merged_output_dict.pkl            # validation text encodings
+      
       ├── model_19.pt                             # model checkpoint
       ├── ae_model.ckpt                           # image encoder-decoder model checkpoint
       ├── ... 
+    
     ├── ImageEncoder                   
     └── README.md
   
