@@ -30,6 +30,9 @@ wandb login
 
 * Model Checkpoint:
   The checkpoint to our best model can be found in the model_19.pt file: [Model Checkpoint Drive Link](https://drive.google.com/file/d/1jP5XZ9JnKstLjRmUJKOJdrUlw_eit9Lv/view?usp=sharing)
+
+* Image Encoder-Decoder Checkpoint:
+  The checkpoint can be found in  ae_model.ckpt file: [Image Autoencoder Checkpoint Drive Link](https://drive.google.com/file/d/1KIpyuyLGdOuHtyDC_RVCg-QO5DoUwN9h/view?usp=sharing)
   
 * Data Setup:
   The data folder with the images and text encoded can be found here: [Dataset Drive Link](https://drive.google.com/file/d/1lhCzn_IDEMmsW9RbGzN-RxQ8Iq_N1Je5/view?usp=sharing)
