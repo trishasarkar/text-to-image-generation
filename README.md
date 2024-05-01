@@ -15,7 +15,7 @@ conda activate ENVNAME
 
 ```bash
 cd diffusion
-pip install -r diffusion/requirements.txt
+pip install -r requirements.txt
 ```
 
 * Login to wandb and add your API Key.
